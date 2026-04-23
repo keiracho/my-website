@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>Block Stacker ✨</title>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
+<style>
+:root {
+  --p1:#FFB3C6; --p2:#FFD6A5; --p3:#FDFFB6; --p4:#CAFFBF;
+  --p5:#9BF6FF; --p6:#A0C4FF; --p7:#BDB2FF; --p8:#FFC6FF;
+  --bg:#FFF0F8;
+  --panel:#FFFFFF;
+  --border:#E8C8E0;
+  --text:#5A3060;
+  --text2:#8A60A0;
+  --shadow:rgba(180,120,200,0.25);
+}
+*{box-sizing:border-box;margin:0;padding:0;image-rendering:pixelated}
+body{
+  font-family:'Nunito',sans-serif;
+  background:var(--bg);
+  min-height:100vh;
+  display:flex;align-items:center;justify-content:center;
+  overflow:hidden;
+}
+
+/* ── 파스텔 배경 ── */
+#bg{
+  position:fixed;inset:0;z-index:0;
+  background:
+    linear-gradient(180deg,
+      #FFE8F5 0%,
+      #F0E8FF 40%,
+      #E8F0FF 70%,
+      #E8FFE8 100%);
+}
+/* 픽셀 도트 패턴 */
+#bg::before{
+  content:'';position:absolute;inset:0;
+  background-image:radial-gradient(circle,rgba(255,180,220,0.4) 1px,transparent 1px);
+  background-size:24px 24px;
+}
+/* 떠다니는 별 장식 */
+#bg::after{
+  content:'★ ★ ★ ★ ★ ★ ★ ★ ★ ★ ★ ★ ★ ★ ★ ★';
+  position:absolute;top:0;left:0;right:0;
+  font-size:14px;color:rgba(255,180,220,0.25);
+  letter-spacing:40px;line-height:3;
+  word-spacing:40px;pointer-events:none;
+}
+
+/* ── 픽셀 구름들 ── */
+.cloud{
+  position:fixed;z-index:1;pointer-events:none;
+  animation:cloudmove 18s linear infinite;
+}
+.cloud svg rect{shape-rendering:crispEdges}
+@keyframes cloudmove{0%{transform:translateX(-120px)}100%{transform:translateX(110vw)}}
+
+/* ── 메인 레이아웃 ── */
+#app{
+  position:relative;z-index:10;
+  display:flex;gap:16px;align-items:flex-start;
+  padding:12px;max-width:960px;width:100%;
+}
+
+/* ── 패널 공통 ── */
+.panel{
+  background:var(--panel);
+  border-radius:16px;
+  border:3px solid var(--border);
+  box-shadow:0 4px 0 var(--border),0 6px 16px var(--shadow);
+  padding:12px 14px;
+}
+.panel-title{
+  font-family:'Press Start 2P',monospace;
+  font-size:7px;color:var(--text2);
+  letter-spacing:0.5px;margin-bottom:10px;
+  text-transform:uppercase;
+}
+
+/* ── 왼쪽 패널 ── */
+#left-panel{width:188px;flex-shrink:0;display:flex;flex-direction:column;gap:10px}
+
+/* 점수 */
+#score-wrap{text-align:center}
+#score-lcd{
+  background:#2D1B3D;border-radius:8px;
+  border:3px solid #5A3060;
+  padding:6px 10px;margin:6px 0 4px;
+  font-family:'Press Start 2P',monospace;
+  font-size:22px;color:#B8FF88;
+  letter-spacing:2px;
+  text-shadow:0 0 8px #80FF40;
+}
+#level-pill{
+  display:inline-block;
+  background:var(--p7);
+  color:var(--text);font-family:'Press Start 2P',monospace;
+  font-size:7px;padding:3px 10px;border-radius:20px;
+  border:2px solid #C8B0F8;
+}
+#combo-txt{
+  font-family:'Press Start 2P',monospace;font-size:8px;
+  color:var(--p1);margin-top:5px;min-height:14px;
+  animation:popbounce .25s ease;
+}
+@keyframes popbounce{0%{transform:scale(1.4)}100%{transform:scale(1)}}
+
+/* LED */
+#led-row{display:flex;gap:6px;justify-content:center;margin-top:6px}
+.led{
+  width:22px;height:22px;
+  /* 픽셀 LED 모양 */
+  clip-path:polygon(20% 0%,80% 0%,100% 20%,100% 80%,80% 100%,20% 100%,0% 80%,0% 20%);
+  background:#DDD0E8;transition:all .3s;
+}
+.led.on.l0{background:var(--p1);box-shadow:0 0 8px var(--p1)}
+.led.on.l1{background:var(--p2);box-shadow:0 0 8px var(--p2)}
+.led.on.l2{background:var(--p3);box-shadow:0 0 8px var(--p3)}
+.led.on.l3{background:var(--p4);box-shadow:0 0 8px var(--p4)}
+.led.on.l4{background:var(--p6);box-shadow:0 0 8px var(--p6)}
+
+/* 센서 */
+.gauge-item{display:flex;flex-direction:column;gap:3px;margin-bottom:7px}
+.gauge-lbl{display:flex;justify-content:space-between;font-size:10px;font-weight:800}
+.gauge-name{color:var(--text2)}
+.gauge-val{color:var(--text);font-family:'Press Start 2P',monospace;font-size:8px}
+.gauge-track{
+  height:8px;border-radius:4px;
+  background:#EEE0F8;border:2px solid var(--border);
+  overflow:hidden;
+}
+.gauge-fill{height:100%;border-radius:2px;transition:width .1s}
+#pot-fill{background:linear-gradient(90deg,var(--p7),var(--p1))}
+#dist-fill{background:linear-gradient(90deg,var(--p5),var(--p4))}
+
+/* 컨트롤 버튼 */
+.px-btn{
+  width:100%;padding:7px 6px;margin-bottom:6px;
+  background:var(--panel);
+  border:3px solid var(--border);border-radius:10px;
+  color:var(--text);font-family:'Press Start 2P',monospace;
+  font-size:7px;cursor:pointer;
+  box-shadow:0 3px 0 var(--border);
+  transition:all .08s;letter-spacing:0.3px;
+}
+.px-btn:active{transform:translateY(3px);box-shadow:none}
+.px-btn:hover{background:var(--bg)}
+.px-btn.connected{background:#DDFCE8;border-color:#80D8A0;color:#2A6040;box-shadow:0 3px 0 #80D8A0}
+.px-btn.demo-on{background:#FFF0C0;border-color:#F0C040;color:#806000;box-shadow:0 3px 0 #F0C040}
+#status-txt{font-size:8px;color:var(--text2);text-align:center;font-weight:800}
+
+/* ── 중앙 게임 ── */
+#game-area{flex:1;display:flex;flex-direction:column;align-items:center}
+
+/* 타이틀 */
+#game-header{
+  background:linear-gradient(90deg,var(--p1),var(--p3),var(--p4),var(--p6),var(--p7));
+  border-radius:14px 14px 0 0;
+  border:3px solid var(--border);border-bottom:none;
+  padding:8px 18px;
+  display:flex;align-items:center;justify-content:center;gap:8px;
+}
+#game-header h1{
+  font-family:'Press Start 2P',monospace;font-size:13px;
+  color:white;text-shadow:2px 2px 0 rgba(100,50,150,0.5);
+  letter-spacing:1px;
+}
+
+/* 캔버스 */
+#canvas-wrap{
+  position:relative;
+  border:3px solid var(--border);border-top:none;
+  border-radius:0 0 12px 12px;
+  overflow:hidden;
+  box-shadow:4px 4px 0 var(--border),6px 6px 20px var(--shadow);
+}
+#game-canvas{display:block}
+
+/* 오버레이 */
+.overlay{
+  position:absolute;inset:0;
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  background:rgba(255,240,252,0.94);
+  gap:10px;
+}
+.overlay.hidden{display:none}
+.ov-title{
+  font-family:'Press Start 2P',monospace;
+  font-size:16px;color:var(--text);
+  text-align:center;line-height:1.6;
+}
+.ov-sub{
+  font-size:11px;color:var(--text2);
+  text-align:center;line-height:2;font-weight:800;
+}
+.px-start-btn{
+  background:linear-gradient(180deg,var(--p6),var(--p7));
+  border:3px solid #8090D8;border-radius:12px;
+  color:white;font-family:'Press Start 2P',monospace;
+  font-size:10px;padding:10px 22px;cursor:pointer;
+  box-shadow:0 5px 0 #8090D8;
+  transition:all .08s;
+  text-shadow:1px 1px 0 rgba(0,0,0,0.2);
+}
+.px-start-btn:active{transform:translateY(5px);box-shadow:none}
+.score-big{
+  font-family:'Press Start 2P',monospace;font-size:36px;
+  color:var(--text);
+  text-shadow:3px 3px 0 var(--border);
+}
+#key-hint{
+  font-family:'Press Start 2P',monospace;
+  font-size:7px;color:var(--text2);
+  text-align:center;margin-top:6px;letter-spacing:0.5px;
+}
+
+/* ── 오른쪽 패널 ── */
+#right-panel{width:188px;flex-shrink:0;display:flex;flex-direction:column;gap:10px}
+
+/* 다음 블록 */
+#next-wrap{text-align:center}
+#next-canvas-wrap{
+  display:flex;align-items:center;justify-content:center;
+  height:44px;margin-top:6px;
+}
+#next-preview-bar{
+  height:20px;border-radius:4px;
+  transition:all .3s;
+  image-rendering:pixelated;
+}
+
+/* 픽셀 캐릭터 */
+#char-panel{text-align:center;padding:14px 12px}
+#px-char{
+  display:inline-block;margin-bottom:8px;
+  line-height:0;font-size:0;
+}
+.pxr{display:flex}
+.pxc{width:7px;height:7px;display:inline-block;flex-shrink:0}
+#char-bubble{
+  background:white;
+  border:2px solid var(--border);
+  border-radius:10px;padding:5px 8px;
+  font-size:10px;font-weight:800;color:var(--text);
+  position:relative;min-height:30px;
+  display:flex;align-items:center;justify-content:center;
+  text-align:center;line-height:1.3;
+}
+#char-bubble::after{
+  content:'';position:absolute;top:-8px;left:50%;
+  transform:translateX(-50%);
+  width:0;height:0;
+  border-left:6px solid transparent;
+  border-right:6px solid transparent;
+  border-bottom:8px solid var(--border);
+}
+#char-bubble::before{
+  content:'';position:absolute;top:-6px;left:50%;
+  transform:translateX(-50%);
+  width:0;height:0;
+  border-left:5px solid transparent;
+  border-right:5px solid transparent;
+  border-bottom:7px solid white;
+  z-index:1;
+}
+
+/* 점수판 */
+.hi-row{
+  display:flex;justify-content:space-between;
+  padding:3px 0;border-bottom:2px dashed var(--border);
+  font-size:10px;font-weight:800;
+}
+.hi-row:last-child{border:none}
+.hi-name{color:var(--text2)}
+.hi-val{font-family:'Press Start 2P',monospace;font-size:8px;color:var(--text)}
+
+/* 콤보 팝업 */
+.combo-pop{
+  position:fixed;pointer-events:none;z-index:999;
+  font-family:'Press Start 2P',monospace;
+  font-size:14px;color:var(--text);
+  background:var(--p3);border:3px solid var(--border);
+  border-radius:8px;padding:4px 10px;
+  animation:combofloat 1s ease-out forwards;
+}
+@keyframes combofloat{
+  0%{opacity:1;transform:translateY(0) scale(1.1)}
+  100%{opacity:0;transform:translateY(-60px) scale(.9)}
+}
+</style>
+</head>
+<body>
+
+<div id="bg"></div>
+
+<!-- 픽셀 구름들 -->
+<div class="cloud" style="top:8%;animation-duration:22s;animation-delay:0s">
+  <svg width="64" height="32" viewBox="0 0 64 32">
+    <rect x="16" y="16" width="32" height="8" fill="white" opacity=".85"/>
+    <rect x="8"  y="12" width="16" height="8" fill="white" opacity=".85"/>
+    <rect x="40" y="12" width="16" height="8" fill="white" opacity=".85"/>
+    <rect x="20" y="8"  width="24" height="8" fill="white" opacity=".85"/>
+  </svg>
+</div>
+<div class="cloud" style="top:18%;animation-duration:28s;animation-delay:-12s">
+  <svg width="48" height="24" viewBox="0 0 48 24">
+    <rect x="12" y="12" width="24" height="6" fill="white" opacity=".7"/>
+    <rect x="6"  y="9"  width="12" height="6" fill="white" opacity=".7"/>
+    <rect x="30" y="9"  width="12" height="6" fill="white" opacity=".7"/>
+    <rect x="15" y="6"  width="18" height="6" fill="white" opacity=".7"/>
+  </svg>
+</div>
+<div class="cloud" style="top:5%;animation-duration:35s;animation-delay:-20s">
+  <svg width="80" height="40" viewBox="0 0 80 40">
+    <rect x="20" y="20" width="40" height="10" fill="white" opacity=".8"/>
+    <rect x="10" y="15" width="20" height="10" fill="white" opacity=".8"/>
+    <rect x="50" y="15" width="20" height="10" fill="white" opacity=".8"/>
+    <rect x="24" y="10" width="32" height="10" fill="white" opacity=".8"/>
+  </svg>
+</div>
+
+<div id="app">
+
+  <!-- 왼쪽 -->
+  <div id="left-panel">
+    <div class="panel" id="score-wrap">
+      <div class="panel-title">Score</div>
+      <div id="score-lcd">000000</div>
+      <div id="level-pill">LEVEL 1</div>
+      <div id="combo-txt"></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">Power</div>
+      <div id="led-row">
+        <div class="led l0" id="led0"></div>
+        <div class="led l1" id="led1"></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">Sensors</div>
+      <div class="gauge-item">
+        <div class="gauge-lbl"><span class="gauge-name">🎛 Knob</span><span class="gauge-val" id="pot-num">50%</span></div>
+        <div class="gauge-track"><div class="gauge-fill" id="pot-fill" style="width:50%"></div></div>
+      </div>
+      <div class="gauge-item">
+        <div class="gauge-lbl"><span class="gauge-name">📡 Sonic</span><span class="gauge-val" id="dist-num">--</span></div>
+        <div class="gauge-track"><div class="gauge-fill" id="dist-fill" style="width:0%"></div></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">Controls</div>
+      <button class="px-btn" id="connect-btn" onclick="connectSerial()">⚡ Connect</button>
+      <button class="px-btn" id="demo-btn" onclick="toggleDemo()">▶ Demo</button>
+      <button class="px-btn" onclick="clearGame()">🗑 Reset</button>
+      <div id="status-txt">Chrome only</div>
+    </div>
+  </div>
+
+  <!-- 중앙 게임 -->
+  <div id="game-area">
+    <div id="game-header">
+      <span style="font-size:16px">🌈</span>
+      <h1>BLOCK STACKER</h1>
+      <span style="font-size:16px">✨</span>
+    </div>
+    <div id="canvas-wrap">
+      <canvas id="game-canvas" width="300" height="480"></canvas>
+
+      <div class="overlay" id="overlay-start">
+        <div class="ov-title">✨ BLOCK<br>STACKER ✨</div>
+        <div class="ov-sub">가변저항으로 이동<br>버튼으로 쌓기!<br><br>손을 센서에 대면<br>시작돼요 👋</div>
+        <button class="px-start-btn" onclick="startGame()">▶ START!</button>
+        <div style="font-family:'Press Start 2P',monospace;font-size:7px;color:var(--text2)">← → SPACE</div>
+      </div>
+
+      <div class="overlay hidden" id="overlay-gameover">
+        <div class="ov-title" style="color:var(--p1)">GAME<br>OVER!</div>
+        <div class="score-big" id="final-score">0</div>
+        <div style="font-family:'Press Start 2P',monospace;font-size:8px;color:var(--text2);margin-bottom:4px" id="final-msg">NICE TRY!</div>
+        <button class="px-start-btn" onclick="startGame()">▶ RETRY!</button>
+      </div>
+    </div>
+    <div id="key-hint">← → MOVE &nbsp;|&nbsp; SPACE DROP</div>
+  </div>
+
+  <!-- 오른쪽 -->
+  <div id="right-panel">
+    <div class="panel" id="next-wrap">
+      <div class="panel-title">Next</div>
+      <div id="next-canvas-wrap">
+        <div id="next-preview-bar" style="width:110px;background:var(--p7);border:3px solid rgba(0,0,0,0.15);border-radius:4px"></div>
+      </div>
+    </div>
+
+    <div class="panel" id="char-panel">
+      <div class="panel-title">Helper</div>
+      <div id="px-char"></div>
+      <div id="char-bubble">Let's go! 🌟</div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">Best Scores</div>
+      <div class="hi-row"><span class="hi-name">🥇 You</span><span class="hi-val" id="hi1">0</span></div>
+      <div class="hi-row"><span class="hi-name">🥈 Best</span><span class="hi-val">8420</span></div>
+      <div class="hi-row"><span class="hi-name">🥉 Last</span><span class="hi-val" id="hi3">0</span></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">How to play</div>
+      <div style="font-size:12px;font-weight:800;color:var(--text2);line-height:2.4">
+        🎛 <span style="color:var(--text)">돌리기</span> → 이동<br>
+        🔘 <span style="color:var(--text)">버튼</span> → 쌓기<br>
+        📡 <span style="color:var(--text)">손 가까이</span> → 시작
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════
+// 픽셀 캐릭터 (귀여운 별 요정)
+// ══════════════════════════════════════════════════
+const CHARS = {
+  idle:[
+    "..PPP..",
+    ".PYYP..",
+    ".P##P..",
+    "..PPP..",
+    ".GGGGG.",
+    "..GGG..",
+    ".G...G.",
+  ],
+  happy:[
+    "..PPP..",
+    ".P^^P..",
+    ".PwwP..",
+    "..PPP..",
+    ".GGGGG.",
+    ".G.G.G.",
+    "G.....G",
+  ],
+  sad:[
+    "..PPP..",
+    ".PvvP..",
+    ".P__P..",
+    "..PPP..",
+    ".GGGGG.",
+    "..GGG..",
+    ".G...G.",
+  ],
+  wow:[
+    "..PPP..",
+    ".PoOP..",
+    ".P..P..",
+    "..PPP..",
+    ".GGGGG.",
+    ".GG.GG.",
+    "G.....G",
+  ]
+};
+const PC={
+  P:'#FFB3C6', Y:'#FFE066', '#':'#5A3060',
+  G:'#A0C4FF', '.':'transparent',
+  '^':'#2ECC71','w':'#FF6B6B',
+  'v':'#E74C3C','_':'#5A3060',
+  'o':'#FF9F00','O':'#5A3060',
+};
+function renderChar(mood){
+  const rows = CHARS[mood]||CHARS.idle;
+  const el = document.getElementById('px-char');
+  el.innerHTML='';
+  rows.forEach(row=>{
+    const d=document.createElement('div');
+    d.className='pxr';
+    [...row].forEach(ch=>{
+      const px=document.createElement('div');
+      px.className='pxc';
+      px.style.background=PC[ch]||'transparent';
+      d.appendChild(px);
+    });
+    el.appendChild(d);
+  });
+}
+renderChar('idle');
+
+const BUBBLES={
+  idle:['Let\'s go! 🌟','Ready? ✨','Fighting! 💪','가자! 🌈'],
+  happy:['Nice! ⭐','Perfect! 🎉','Yeah~! 🌟','좋아요! ✨'],
+  combo:['COMBO! 🔥','Amazing! 🌈','Keep going! ⚡'],
+  sad:['Oops! 😅','It\'s ok! 💕','Try again! 🌟'],
+  wow:['WOW!! 🤩','Crazy! 🔥','LEGEND!! 👑'],
+};
+function setChar(mood,key){
+  renderChar(mood);
+  const msgs=BUBBLES[key||mood]||BUBBLES.idle;
+  document.getElementById('char-bubble').textContent=
+    msgs[Math.floor(Math.random()*msgs.length)];
+}
+
+// ══════════════════════════════════════════════════
+// 파스텔 블록 색상 팔레트
+// ══════════════════════════════════════════════════
+const PASTEL_BLOCKS=[
+  {fill:'#FFB3C6',top:'#FFC8D6',border:'#E890A8',shadow:'#D06888'},
+  {fill:'#FFD6A5',top:'#FFE4B8',border:'#E0B478',shadow:'#C09050'},
+  {fill:'#FDFFB6',top:'#FEFFCC',border:'#D8E068',shadow:'#A8B040'},
+  {fill:'#CAFFBF',top:'#D8FFC8',border:'#88D870',shadow:'#50A840'},
+  {fill:'#9BF6FF',top:'#B8F8FF',border:'#60D8E8',shadow:'#30A8B8'},
+  {fill:'#A0C4FF',top:'#B8D4FF',border:'#6898E8',shadow:'#3860B8'},
+  {fill:'#BDB2FF',top:'#CCBEFF',border:'#9080E8',shadow:'#6050B8'},
+  {fill:'#FFC6FF',top:'#FFD4FF',border:'#E888E8',shadow:'#B850B8'},
+];
+
+// ══════════════════════════════════════════════════
+// 게임
+// ══════════════════════════════════════════════════
+const CW=300,CH=480,BH=22;
+const canvas=document.getElementById('game-canvas');
+const ctx=canvas.getContext('2d');
+
+let gameState='idle',score=0,level=1,combo=0,highScore=0,lastScore=0;
+let stackedBlocks=[],movingBlock=null,particles=[];
+let potPercent=50,distCm=99;
+let serialPort=null,demoTimer=null;
+
+function startGame(){
+  document.getElementById('overlay-start').classList.add('hidden');
+  document.getElementById('overlay-gameover').classList.add('hidden');
+  score=0;level=1;combo=0;stackedBlocks=[];particles=[];
+  stackedBlocks.push({x:(CW-200)/2,y:CH-BH,w:200,ci:0,isBase:true});
+  spawnBlock();
+  gameState='playing';
+  updateUI();
+  sendToArduino('START');
+  setChar('happy');
+}
+
+function spawnBlock(){
+  const top=stackedBlocks[stackedBlocks.length-1];
+  const newW=Math.max(34,top.w-Math.floor(Math.random()*10));
+  const ci=(stackedBlocks.length)%PASTEL_BLOCKS.length;
+  movingBlock={x:0,y:top.y-BH-2,w:newW,ci};
+  const nb=document.getElementById('next-preview-bar');
+  const nextCi=(ci+1)%PASTEL_BLOCKS.length;
+  const nextW=Math.max(34,newW-Math.floor(Math.random()*10));
+  nb.style.width=Math.round((nextW/200)*140)+'px';
+  nb.style.background=PASTEL_BLOCKS[nextCi].fill;
+  nb.style.borderColor=PASTEL_BLOCKS[nextCi].border;
+}
+
+function dropBlock(){
+  if(gameState!=='playing'||!movingBlock)return;
+  const top=stackedBlocks[stackedBlocks.length-1];
+  const ol=Math.max(movingBlock.x,top.x);
+  const or=Math.min(movingBlock.x+movingBlock.w,top.x+top.w);
+  const overlap=or-ol;
+  if(overlap<=0){triggerGameOver();return;}
+  stackedBlocks.push({x:ol,y:movingBlock.y,w:overlap,ci:movingBlock.ci});
+  combo++;score+=Math.round(overlap*(1+combo*.12));
+  level=Math.min(2,Math.floor(score/280)+1);
+  // 잘린 파티클
+  const leftW=ol-movingBlock.x, rightW=(movingBlock.x+movingBlock.w)-or;
+  if(leftW>0) spawnChips(movingBlock.x,movingBlock.y,leftW,movingBlock.ci,-1);
+  if(rightW>0) spawnChips(or,movingBlock.y,rightW,movingBlock.ci,1);
+  if(combo>=2){showComboPop(combo);setChar('happy',combo>=5?'wow':'combo');}
+  sendToArduino('SUCCESS:'+combo);
+  sendToArduino('LEVEL:'+level);
+  updateUI();scrollIfNeeded();
+  movingBlock=null;setTimeout(spawnBlock,180);
+}
+
+function triggerGameOver(){
+  gameState='gameover';sendToArduino('GAMEOVER');updateLEDs(0);
+  lastScore=score;if(score>highScore){highScore=score;document.getElementById('hi1').textContent=highScore;}
+  document.getElementById('hi3').textContent=lastScore;
+  document.getElementById('final-score').textContent=score;
+  document.getElementById('final-msg').textContent=score>800?'AMAZING!':score>400?'GREAT!':'TRY AGAIN!';
+  setChar('sad');
+  // 데모 모드면 오버레이 없이 빠르게 재시작
+  if(demoTimer){
+    setTimeout(startGame,1200);
+  } else {
+    setTimeout(()=>document.getElementById('overlay-gameover').classList.remove('hidden'),700);
+  }
+}
+
+function clearGame(){
+  gameState='idle';stackedBlocks=[];particles=[];movingBlock=null;
+  document.getElementById('overlay-start').classList.remove('hidden');
+  document.getElementById('overlay-gameover').classList.add('hidden');
+  setChar('idle');
+}
+
+let scrollOffset=0;
+function scrollIfNeeded(){
+  const top=stackedBlocks[stackedBlocks.length-1];
+  if(top.y<110){const s=110-top.y;scrollOffset+=s;stackedBlocks.forEach(b=>b.y+=s);if(movingBlock)movingBlock.y+=s;}
+}
+
+function spawnChips(x,y,w,ci,dir){
+  const col=PASTEL_BLOCKS[ci%PASTEL_BLOCKS.length].fill;
+  for(let i=0;i<10;i++){
+    particles.push({
+      x:x+Math.random()*w,y:y+BH/2,
+      vx:dir*(1+Math.random()*3.5),
+      vy:-(1+Math.random()*4.5),
+      size:4+Math.random()*7,
+      color:col,alpha:1,life:1,
+    });
+  }
+}
+
+// ══════════════════════════════════════════════════
+// 렌더링
+// ══════════════════════════════════════════════════
+function draw(){
+  // 배경
+  const bg=ctx.createLinearGradient(0,0,0,CH);
+  bg.addColorStop(0,'#FFE8F8');bg.addColorStop(0.55,'#EEE0FF');
+  bg.addColorStop(0.55,'#E0F0E0');bg.addColorStop(1,'#D0E8D0');
+  ctx.fillStyle=bg;ctx.fillRect(0,0,CW,CH);
+
+  // 픽셀 도트 패턴
+  ctx.fillStyle='rgba(200,160,220,0.12)';
+  for(let x=0;x<CW;x+=12)for(let y=0;y<CH;y+=12)
+    ctx.fillRect(x+4,y+4,3,3);
+
+  // 쌓인 블록
+  stackedBlocks.forEach((b,i)=>{
+    if(b.isBase){drawBase(b.x,b.y,b.w,BH);return;}
+    drawPixelBlock(b.x,b.y,b.w,BH,b.ci);
+  });
+
+  // 움직이는 블록
+  if(movingBlock&&gameState==='playing'){
+    movingBlock.x=(potPercent/100)*(CW-movingBlock.w);
+    const top=stackedBlocks[stackedBlocks.length-1];
+    // 그림자
+    ctx.globalAlpha=0.18;
+    drawPixelBlock(movingBlock.x,top.y-BH-2,movingBlock.w,BH,movingBlock.ci);
+    ctx.globalAlpha=1;
+    // 점선 가이드
+    ctx.setLineDash([3,3]);
+    ctx.strokeStyle=PASTEL_BLOCKS[movingBlock.ci%PASTEL_BLOCKS.length].border+'88';
+    ctx.lineWidth=1.5;
+    ctx.beginPath();
+    ctx.moveTo(movingBlock.x+2,movingBlock.y+BH);
+    ctx.lineTo(movingBlock.x+2,top.y-BH-2);
+    ctx.moveTo(movingBlock.x+movingBlock.w-2,movingBlock.y+BH);
+    ctx.lineTo(movingBlock.x+movingBlock.w-2,top.y-BH-2);
+    ctx.stroke();ctx.setLineDash([]);
+    // 실제 블록
+    drawPixelBlock(movingBlock.x,movingBlock.y,movingBlock.w,BH,movingBlock.ci);
+  }
+
+  // 파티클
+  particles.forEach(p=>{
+    ctx.globalAlpha=p.alpha;
+    ctx.fillStyle=p.color;
+    // 픽셀 사각형 파티클
+    ctx.fillRect(Math.round(p.x-p.size/2),Math.round(p.y-p.size/2),Math.round(p.size),Math.round(p.size));
+  });
+  ctx.globalAlpha=1;
+}
+
+function drawPixelBlock(x,y,w,h,ci){
+  const c=PASTEL_BLOCKS[ci%PASTEL_BLOCKS.length];
+  // 그림자 (픽셀 느낌)
+  ctx.fillStyle=c.shadow;
+  ctx.fillRect(Math.round(x+3),Math.round(y+h),Math.round(w),3);
+
+  // 메인 바디
+  ctx.fillStyle=c.fill;
+  ctx.fillRect(Math.round(x),Math.round(y),Math.round(w),Math.round(h));
+
+  // 상단 하이라이트 (픽셀)
+  ctx.fillStyle=c.top;
+  ctx.fillRect(Math.round(x),Math.round(y),Math.round(w),4);
+  ctx.fillRect(Math.round(x),Math.round(y),3,Math.round(h));
+
+  // 하단/오른쪽 그림자
+  ctx.fillStyle=c.border;
+  ctx.fillRect(Math.round(x),Math.round(y+h-3),Math.round(w),3);
+  ctx.fillRect(Math.round(x+w-3),Math.round(y),3,Math.round(h));
+
+  // 픽셀 테두리
+  ctx.strokeStyle=c.border;
+  ctx.lineWidth=2;
+  ctx.strokeRect(Math.round(x)+1,Math.round(y)+1,Math.round(w)-2,Math.round(h)-2);
+
+  // 픽셀 장식 (작은 도트)
+  if(w>=36){
+    ctx.fillStyle=c.top;
+    ctx.fillRect(Math.round(x+8),Math.round(y+7),3,3);
+    ctx.fillRect(Math.round(x+8),Math.round(y+13),3,3);
+  }
+  if(w>=60){
+    ctx.fillStyle=c.top;
+    ctx.fillRect(Math.round(x+w-14),Math.round(y+7),3,3);
+    ctx.fillRect(Math.round(x+w-14),Math.round(y+13),3,3);
+  }
+}
+
+function drawBase(x,y,w,h){
+  ctx.fillStyle='#C8B0D8';
+  ctx.fillRect(Math.round(x+3),Math.round(y+h),Math.round(w),3);
+  ctx.fillStyle='#E8D8F8';
+  ctx.fillRect(Math.round(x),Math.round(y),Math.round(w),Math.round(h));
+  ctx.fillStyle='#F0E8FF';
+  ctx.fillRect(Math.round(x),Math.round(y),Math.round(w),4);
+  ctx.fillStyle='#C8B0D8';
+  ctx.fillRect(Math.round(x),Math.round(y+h-3),Math.round(w),3);
+  ctx.strokeStyle='#C8B0D8';ctx.lineWidth=2;
+  ctx.strokeRect(Math.round(x)+1,Math.round(y)+1,Math.round(w)-2,Math.round(h)-2);
+}
+
+// ══════════════════════════════════════════════════
+// 게임 루프
+// ══════════════════════════════════════════════════
+function updateParticles(){
+  particles=particles.filter(p=>p.life>0);
+  particles.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.vy+=0.28;p.life-=0.04;p.alpha=p.life;});
+}
+(function loop(){updateParticles();draw();requestAnimationFrame(loop);})();
+
+// ══════════════════════════════════════════════════
+// UI
+// ══════════════════════════════════════════════════
+function updateUI(){
+  document.getElementById('score-lcd').textContent=String(score).padStart(6,'0');
+  document.getElementById('level-pill').textContent=`LEVEL ${level}`;
+  document.getElementById('combo-txt').textContent=combo>=2?`${combo} COMBO! 🔥`:'';
+  updateLEDs(level);
+}
+function updateLEDs(l){for(let i=0;i<2;i++)document.getElementById('led'+i).classList.toggle('on',i<l);}
+function updateSensorUI(pot,dist){
+  document.getElementById('pot-fill').style.width=pot+'%';
+  document.getElementById('pot-num').textContent=pot+'%';
+  const dp=Math.max(0,Math.min(100,(1-(dist-3)/27)*100));
+  document.getElementById('dist-fill').style.width=(dist<90?dp:0)+'%';
+  document.getElementById('dist-num').textContent=dist<90?dist+'cm':'--';
+}
+function showComboPop(n){
+  const el=document.createElement('div');el.className='combo-pop';
+  el.textContent=`${n} COMBO!`;
+  const r=canvas.getBoundingClientRect();
+  el.style.left=(r.left+CW/2-50)+'px';el.style.top=(r.top+CH/3)+'px';
+  document.body.appendChild(el);setTimeout(()=>el.remove(),1000);
+}
+
+// ══════════════════════════════════════════════════
+// 키보드 / 시리얼 / 데모
+// ══════════════════════════════════════════════════
+document.addEventListener('keydown',e=>{
+  if(e.code==='Space'){e.preventDefault();if(gameState==='idle'||gameState==='gameover')startGame();else dropBlock();}
+  if(e.code==='ArrowLeft') potPercent=Math.max(0,potPercent-5);
+  if(e.code==='ArrowRight')potPercent=Math.min(100,potPercent+5);
+  updateSensorUI(potPercent,distCm);
+});
+
+async function connectSerial(){
+  const btn=document.getElementById('connect-btn');
+  if(!navigator.serial){document.getElementById('status-txt').textContent='Chrome only!';return;}
+  try{
+    serialPort=await navigator.serial.requestPort();
+    await serialPort.open({baudRate:9600});
+    btn.textContent='✅ Connected';btn.classList.add('connected');
+    document.getElementById('status-txt').textContent='Reading...';
+    readLoop();
+  }catch(e){document.getElementById('status-txt').textContent='Cancelled';}
+}
+async function readLoop(){
+  const reader=serialPort.readable.getReader();let buf='';
+  try{
+    while(true){
+      const{value,done}=await reader.read();if(done)break;
+      buf+=new TextDecoder().decode(value);
+      const lines=buf.split('\n');buf=lines.pop();
+      lines.forEach(l=>{
+        const p=l.trim().split(',');if(p.length!==3)return;
+        const pot=parseInt(p[0]),btn=parseInt(p[1]),hand=parseInt(p[2]);
+        if(!isNaN(pot)){potPercent=pot;updateSensorUI(pot,distCm);}
+        if(btn===1){if(gameState==='idle'||gameState==='gameover')startGame();else dropBlock();}
+        if(hand===1&&gameState==='idle')startGame();
+      });
+    }
+  }catch(e){document.getElementById('status-txt').textContent='Disconnected';document.getElementById('connect-btn').classList.remove('connected');document.getElementById('connect-btn').textContent='⚡ Connect';}
+  finally{reader.releaseLock();}
+}
+async function sendToArduino(msg){
+  if(!serialPort?.writable)return;
+  const w=serialPort.writable.getWriter();
+  await w.write(new TextEncoder().encode(msg+'\n'));w.releaseLock();
+}
+
+// ── 데모 모드 ──────────────────────────────────────
+// 성공 4~5번 쌓다가 1번 일부러 빗나가서 실패음 시연
+// → 교수님한테 성공 멜로디 + 실패 경고음 둘 다 보여줌
+let di=0, ddc=7, demoSuccessCount=0, demoFailNext=false;
+
+// 성공할 때: 현재 블록에 딱 맞게 pot 위치 계산
+function getDemoAlignedPot(){
+  if(!movingBlock||!stackedBlocks.length) return 50;
+  const top=stackedBlocks[stackedBlocks.length-1];
+  // 블록을 탑 위에 딱 맞추는 x값 → pot%로 변환
+  const targetX=top.x+(top.w-movingBlock.w)/2;
+  const pot=Math.max(5,Math.min(95,(targetX/(CW-movingBlock.w))*100));
+  return pot+( Math.random()-0.5)*6; // 약간의 자연스러운 흔들림
+}
+
+// 실패할 때: 탑에서 크게 벗어난 위치
+function getDemoMissPot(){
+  if(!movingBlock||!stackedBlocks.length) return 85;
+  const top=stackedBlocks[stackedBlocks.length-1];
+  const alignedX=top.x+(top.w-movingBlock.w)/2;
+  const missDist=movingBlock.w*1.5; // 완전히 벗어나도록
+  const missX=alignedX+(Math.random()<0.5?missDist:-missDist);
+  const pot=Math.max(5,Math.min(95,(missX/(CW-movingBlock.w))*100));
+  return pot;
+}
+
+let demoTargetPot=50, demoCurrentPot=50, demoMoveTimer=null;
+
+function toggleDemo(){
+  const btn=document.getElementById('demo-btn');
+  if(demoTimer){
+    clearInterval(demoTimer);demoTimer=null;
+    btn.textContent='▶ Demo';btn.classList.remove('demo-on');
+    return;
+  }
+  btn.textContent='⏹ Stop';btn.classList.add('demo-on');
+  if(gameState!=='playing')startGame();
+  di=0;ddc=8;demoSuccessCount=0;demoFailNext=false;
+  demoCurrentPot=50;demoTargetPot=50;
+
+  demoTimer=setInterval(()=>{
+    if(gameState==='gameover'){setTimeout(startGame,900);return;}
+    if(gameState!=='playing')return;
+
+    // 목표 위치를 향해 부드럽게 이동
+    demoCurrentPot+=(demoTargetPot-demoCurrentPot)*0.18;
+    potPercent=Math.round(demoCurrentPot);
+    updateSensorUI(potPercent,distCm);
+
+    ddc--;
+    if(ddc<=0){
+      // 드롭 타이밍
+      if(demoFailNext){
+        // 일부러 빗나감 → 실패음 시연
+        dropBlock(); // 이미 pot이 빗나간 위치에 있으므로 게임오버
+        demoFailNext=false;
+        demoSuccessCount=0;
+      } else {
+        // 성공 드롭
+        dropBlock();
+        demoSuccessCount++;
+        // 4~5번 성공 후 다음은 실패 예정
+        if(demoSuccessCount>=4+Math.floor(Math.random()*2)){
+          demoFailNext=true;
+        }
+      }
+      // 다음 드롭까지 카운트 + 목표 위치 설정
+      ddc=demoFailNext ? 12 : 8+Math.floor(Math.random()*5);
+      // 다음 목표 위치 결정
+      setTimeout(()=>{
+        if(gameState==='playing'){
+          demoTargetPot=demoFailNext ? getDemoMissPot() : getDemoAlignedPot();
+        }
+      },200);
+    }
+  },80);
+}
+</script>
+</body>
+</html>
